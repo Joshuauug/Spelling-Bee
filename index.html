@@ -3,29 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spelling Bee Pro - Smart Study</title>
+    <title>Spelling Bee Pro - Random Study</title>
     <script src="wordlist.js"></script>
     <style>
         :root { --primary: #2563eb; --success: #10b981; --error: #ef4444; --bg: #f8fafc; --panel: #ffffff; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; min-height: 100vh; color: #1e293b; }
         .container { max-width: 600px; width: 100%; padding: 20px; }
         .panel { background: var(--panel); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        
         h1 { margin-top: 0; font-size: 1.5rem; text-align: center; color: var(--primary); }
         .definition { font-size: 1.2rem; font-style: italic; margin: 20px 0; min-height: 60px; line-height: 1.4; text-align: center; }
-        
         .word-input { width: 100%; font-size: 1.8rem; padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; text-align: center; outline: none; box-sizing: border-box; }
         .word-input:focus { border-color: var(--primary); }
         .retry-mode { border-color: #f59e0b; background: #fffbeb; }
-        
         button { cursor: pointer; border: none; font-weight: 700; border-radius: 10px; transition: 0.2s; }
         .btn-main { background: var(--primary); color: white; width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 15px; }
         .btn-speaker { background: #f1f5f9; color: var(--primary); padding: 10px 20px; margin-bottom: 20px; }
-        
         .accent-toggle { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .accent-btn { background: #e2e8f0; padding: 8px 16px; font-size: 0.9rem; }
         .accent-btn.active { background: #334155; color: white; }
-
         .stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; }
         #feedback { margin-top: 15px; font-weight: 800; text-align: center; min-height: 24px; }
     </style>
@@ -35,35 +30,29 @@
 <div class="container">
     <div id="manager-ui" class="panel">
         <h1>🐝 Spelling Bee</h1>
-        <p style="text-align:center;">Master your oceanography and investigation files.</p>
+        <p style="text-align:center;">Chapter III: The Ocean (Investigation Files)</p>
         <div style="text-align:center; margin: 20px 0;">
             <span id="total-count" style="background:#e0e7ff; color:#4338ca; padding:4px 12px; border-radius:99px;">0 Words Loaded</span>
         </div>
         <button class="btn-main" onclick="startBee()" id="start-btn">Start Practice</button>
-        <button onclick="resetProgress()" style="display:block; width:100%; background:none; color:#94a3b8; font-size:0.8rem; margin-top:20px; text-decoration:underline;">Reset Progress</button>
+        <button onclick="resetProgress()" style="display:block; width:100%; background:none; color:#94a3b8; font-size:0.8rem; margin-top:20px; text-decoration:underline;">Reset Progress & Scramble</button>
     </div>
 
     <div id="game-ui" class="panel" style="display:none;">
         <div class="stats">
-            <span id="progress-text">Word 1/500</span>
+            <span id="progress-text">Word 1/--</span>
             <span id="score-text">Score: 0</span>
         </div>
-
         <div class="accent-toggle">
             <button id="btn-us" class="accent-btn active" onclick="setAccent('en-US')">🇺🇸 US</button>
             <button id="btn-uk" class="accent-btn" onclick="setAccent('en-GB')">🇬🇧 UK</button>
         </div>
-
         <div class="definition" id="current-def">...</div>
-        
         <div style="text-align: center;">
             <button class="btn-speaker" onclick="speakWord(0.9)">🔊 Hear Word</button>
         </div>
-
         <input type="text" id="user-input" class="word-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
-        
         <div id="feedback"></div>
-        
         <button id="next-btn" class="btn-main" onclick="handleNext()" style="display:none; background: var(--success);">Next Word (Press Enter)</button>
     </div>
 </div>
@@ -72,9 +61,7 @@
     let allWords = [], currentIndex = 0, score = 0;
     let currentLang = 'en-US', voices = [], isRetryMode = false;
 
-    function loadVoices() {
-        voices = window.speechSynthesis.getVoices();
-    }
+    function loadVoices() { voices = window.speechSynthesis.getVoices(); }
     window.speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
 
@@ -88,6 +75,13 @@
 
     function init() {
         allWords = parseList();
+        
+        // --- THE RANDOMIZER ---
+        // If we don't have a saved session, shuffle the words immediately
+        if (!localStorage.getItem('bee_progress')) {
+            allWords.sort(() => Math.random() - 0.5);
+        }
+
         document.getElementById('total-count').innerText = `${allWords.length} Words Loaded`;
         
         const savedIdx = localStorage.getItem('bee_progress');
@@ -144,16 +138,10 @@
         currentIndex++;
         localStorage.setItem('bee_progress', currentIndex);
         localStorage.setItem('bee_score', score);
-
-        if (currentIndex < allWords.length) {
-            loadQuestion();
-        } else {
-            alert(`Practice Complete! Score: ${score}`);
-            resetProgress(false);
-        }
+        if (currentIndex < allWords.length) loadQuestion();
+        else { alert(`Practice Complete! Score: ${score}`); resetProgress(false); }
     }
 
-    // SMART ENTER LOGIC
     document.getElementById('user-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             const input = document.getElementById('user-input');
@@ -162,11 +150,7 @@
             const correct = allWords[currentIndex].word.toLowerCase();
             const guess = input.value.trim().toLowerCase();
 
-            // Only move to next word if the correct answer was already confirmed
-            if (nextBtn.style.display === 'block') {
-                handleNext();
-                return;
-            }
+            if (nextBtn.style.display === 'block') { handleNext(); return; }
 
             if (guess === correct) {
                 feedback.innerText = isRetryMode ? "✅ FIXED!" : "✅ CORRECT";
@@ -188,7 +172,7 @@
     });
 
     function resetProgress(ask = true) {
-        if (!ask || confirm("Restart from Word 1?")) {
+        if (!ask || confirm("Restart and Shuffle words?")) {
             localStorage.clear();
             location.reload();
         }
