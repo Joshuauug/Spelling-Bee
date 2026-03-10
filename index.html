@@ -2,112 +2,123 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Spelling Bee Pro - Final Version</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Bee Pro - Smart Study</title>
     <script src="wordlist.js"></script>
     <style>
-        :root { --primary: #2563eb; --bg: #f1f5f9; --panel: #ffffff; --text: #1e293b; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 40px; display: flex; justify-content: center; color: var(--text); }
-        .container { max-width: 800px; width: 100%; }
-        .panel { background: var(--panel); padding: 30px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        :root { --primary: #2563eb; --success: #10b981; --error: #ef4444; --bg: #f8fafc; --panel: #ffffff; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; min-height: 100vh; color: #1e293b; }
+        .container { max-width: 600px; width: 100%; padding: 20px; }
+        .panel { background: var(--panel); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         
-        .toolbar { display: flex; gap: 15px; margin: 20px 0; align-items: center; }
-        .search-input { flex-grow: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
+        h1 { margin-top: 0; font-size: 1.5rem; text-align: center; color: var(--primary); }
+        .definition { font-size: 1.2rem; font-style: italic; margin: 20px 0; min-height: 60px; line-height: 1.4; text-align: center; }
         
-        .scroll-area { max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; }
-
-        .accent-toggle { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-        button { cursor: pointer; padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; transition: 0.2s; }
-        .btn-accent { background: #e2e8f0; }
-        .btn-accent.active { background: var(--primary); color: white; }
-        .btn-start { background: #8b5cf6; color: white; width: 100%; font-size: 1.2em; }
-        
-        #game-ui { display: none; text-align: center; }
-        .word-input { font-size: 2em; width: 100%; text-align: center; border: 2px solid #cbd5e1; border-radius: 12px; padding: 10px; margin-top: 15px; }
+        .word-input { width: 100%; font-size: 1.8rem; padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; text-align: center; outline: none; box-sizing: border-box; }
+        .word-input:focus { border-color: var(--primary); }
         .retry-mode { border-color: #f59e0b; background: #fffbeb; }
+        
+        button { cursor: pointer; border: none; font-weight: 700; border-radius: 10px; transition: 0.2s; }
+        .btn-main { background: var(--primary); color: white; width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 15px; }
+        .btn-speaker { background: #f1f5f9; color: var(--primary); padding: 10px 20px; margin-bottom: 20px; }
+        
+        .accent-toggle { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        .accent-btn { background: #e2e8f0; padding: 8px 16px; font-size: 0.9rem; }
+        .accent-btn.active { background: #334155; color: white; }
+
+        .stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; }
+        #feedback { margin-top: 15px; font-weight: 800; text-align: center; min-height: 24px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="manager-ui" class="panel">
-        <h1>Spelling Bee Manager</h1>
-        <div class="toolbar">
-            <input type="text" id="search-bar" class="search-input" placeholder="Search words..." oninput="filterList()">
-            <div id="count-label">Words: 0</div>
+        <h1>🐝 Spelling Bee</h1>
+        <p style="text-align:center;">Master your oceanography and investigation files.</p>
+        <div style="text-align:center; margin: 20px 0;">
+            <span id="total-count" style="background:#e0e7ff; color:#4338ca; padding:4px 12px; border-radius:99px;">0 Words Loaded</span>
         </div>
-        <div class="scroll-area">
-            <table><thead><tr><th>Word</th><th>Definition</th></tr></thead><tbody id="table-body"></tbody></table>
-        </div>
-        <button class="btn-start" onclick="startBee()">Start Practice</button>
+        <button class="btn-main" onclick="startBee()" id="start-btn">Start Practice</button>
+        <button onclick="resetProgress()" style="display:block; width:100%; background:none; color:#94a3b8; font-size:0.8rem; margin-top:20px; text-decoration:underline;">Reset Progress</button>
     </div>
 
-    <div id="game-ui" class="panel">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #64748b;">
-            <span id="game-progress"></span>
-            <span id="game-score">Score: 0</span>
+    <div id="game-ui" class="panel" style="display:none;">
+        <div class="stats">
+            <span id="progress-text">Word 1/500</span>
+            <span id="score-text">Score: 0</span>
         </div>
+
         <div class="accent-toggle">
-            <button id="btn-us" class="btn-accent active" onclick="setAccent('en-US')">🇺🇸 US</button>
-            <button id="btn-uk" class="btn-accent" onclick="setAccent('en-GB')">🇬🇧 UK</button>
+            <button id="btn-us" class="accent-btn active" onclick="setAccent('en-US')">🇺🇸 US</button>
+            <button id="btn-uk" class="accent-btn" onclick="setAccent('en-GB')">🇬🇧 UK</button>
         </div>
-        <div id="current-def" style="font-size: 1.4em; font-style: italic; margin-bottom: 20px;"></div>
-        <button style="background: #10b981; color: white;" onclick="speakWord(0.9)">🔊 Hear Word</button>
-        <input type="text" id="user-input" class="word-input" autocomplete="off" placeholder="Type here...">
-        <div id="feedback" style="margin-top: 20px; font-weight: bold; font-size: 1.2em;"></div>
-        <button id="next-btn" onclick="handleNext()" style="background: var(--primary); color: white; width: 100%; display: none; margin-top: 20px;">Next Word</button>
+
+        <div class="definition" id="current-def">...</div>
+        
+        <div style="text-align: center;">
+            <button class="btn-speaker" onclick="speakWord(0.9)">🔊 Hear Word</button>
+        </div>
+
+        <input type="text" id="user-input" class="word-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
+        
+        <div id="feedback"></div>
+        
+        <button id="next-btn" class="btn-main" onclick="handleNext()" style="display:none; background: var(--success);">Next Word (Press Enter)</button>
     </div>
 </div>
 
 <script>
-    let allWords = [], currentIndex = 0, score = 0, currentLang = 'en-US', voices = [], isRetryMode = false;
+    let allWords = [], currentIndex = 0, score = 0;
+    let currentLang = 'en-US', voices = [], isRetryMode = false;
 
-    function loadVoices() { voices = window.speechSynthesis.getVoices(); }
+    function loadVoices() {
+        voices = window.speechSynthesis.getVoices();
+    }
     window.speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
 
     function parseList() {
         if (typeof rawWordList === 'undefined') return [];
-        return rawWordList.split('\n').filter(l => l.includes(':')).map(l => {
-            const [w, ...d] = l.split(':');
-            return { word: w.trim(), def: d.join(':').trim() };
-        }).filter(i => i.word.length > 0);
+        return rawWordList.trim().split('\n').filter(l => l.includes(':')).map(l => {
+            const p = l.split(':');
+            return { word: p[0].trim(), def: p.slice(1).join(':').trim() };
+        });
     }
 
     function init() {
         allWords = parseList();
-        renderTable(allWords);
+        document.getElementById('total-count').innerText = `${allWords.length} Words Loaded`;
+        
+        const savedIdx = localStorage.getItem('bee_progress');
+        const savedScore = localStorage.getItem('bee_score');
+        if (savedIdx !== null) {
+            currentIndex = parseInt(savedIdx);
+            score = parseInt(savedScore) || 0;
+            document.getElementById('start-btn').innerText = `Resume Word ${currentIndex + 1}`;
+        }
     }
 
-    function renderTable(data) {
-        document.getElementById('count-label').innerText = "Words: " + data.length;
-        document.getElementById('table-body').innerHTML = data.map(i => `<tr><td><strong>${i.word}</strong></td><td>${i.def}</td></tr>`).join('');
-    }
-
-    function filterList() {
-        const q = document.getElementById('search-bar').value.toLowerCase();
-        renderTable(allWords.filter(i => i.word.toLowerCase().includes(q) || i.def.toLowerCase().includes(q)));
-    }
-
-    function setAccent(l) {
-        currentLang = l;
-        document.getElementById('btn-us').classList.toggle('active', l === 'en-US');
-        document.getElementById('btn-uk').classList.toggle('active', l === 'en-GB');
+    function setAccent(lang) {
+        currentLang = lang;
+        document.getElementById('btn-us').classList.toggle('active', lang === 'en-US');
+        document.getElementById('btn-uk').classList.toggle('active', lang === 'en-GB');
     }
 
     function speakWord(speed) {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(allWords[currentIndex].word);
-        const voice = voices.find(v => v.lang === currentLang) || voices.find(v => v.lang.startsWith(currentLang.split('-')[0]));
-        if (voice) utter.voice = voice;
+        const preferred = voices.find(v => 
+            (v.name.includes("Google") || v.name.includes("Serena") || v.name.includes("Oliver")) && 
+            v.lang.startsWith(currentLang.split('-')[0])
+        );
+        utter.voice = preferred || voices.find(v => v.lang.startsWith(currentLang.split('-')[0]));
         utter.rate = speed;
         window.speechSynthesis.speak(utter);
     }
 
     function startBee() {
-        if (allWords.length === 0) return alert("Wordlist is empty!");
-        allWords.sort(() => Math.random() - 0.5);
+        if (allWords.length === 0) return;
         document.getElementById('manager-ui').style.display = 'none';
         document.getElementById('game-ui').style.display = 'block';
         loadQuestion();
@@ -117,9 +128,12 @@
         isRetryMode = false;
         const item = allWords[currentIndex];
         document.getElementById('current-def').innerText = item.def;
-        document.getElementById('game-progress').innerText = `Word ${currentIndex + 1}/${allWords.length}`;
+        document.getElementById('progress-text').innerText = `Word ${currentIndex + 1}/${allWords.length}`;
+        document.getElementById('score-text').innerText = `Score: ${score}`;
+        
         const input = document.getElementById('user-input');
-        input.value = ''; input.disabled = false; input.classList.remove('retry-mode'); input.placeholder = "Type here...";
+        input.value = ''; input.disabled = false; input.classList.remove('retry-mode');
+        input.placeholder = "Type here...";
         document.getElementById('feedback').innerText = '';
         document.getElementById('next-btn').style.display = 'none';
         input.focus();
@@ -128,35 +142,57 @@
 
     function handleNext() {
         currentIndex++;
-        if (currentIndex < allWords.length) loadQuestion();
-        else { alert("Final Score: " + score); location.reload(); }
+        localStorage.setItem('bee_progress', currentIndex);
+        localStorage.setItem('bee_score', score);
+
+        if (currentIndex < allWords.length) {
+            loadQuestion();
+        } else {
+            alert(`Practice Complete! Score: ${score}`);
+            resetProgress(false);
+        }
     }
 
+    // SMART ENTER LOGIC
     document.getElementById('user-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             const input = document.getElementById('user-input');
             const feedback = document.getElementById('feedback');
+            const nextBtn = document.getElementById('next-btn');
             const correct = allWords[currentIndex].word.toLowerCase();
             const guess = input.value.trim().toLowerCase();
 
+            // Only move to next word if the correct answer was already confirmed
+            if (nextBtn.style.display === 'block') {
+                handleNext();
+                return;
+            }
+
             if (guess === correct) {
-                feedback.innerText = isRetryMode ? "✅ Fixed it!" : "✅ Correct!";
-                feedback.style.color = "#10b981";
+                feedback.innerText = isRetryMode ? "✅ FIXED!" : "✅ CORRECT";
+                feedback.style.color = "var(--success)";
                 if (!isRetryMode) score++;
-                document.getElementById('game-score').innerText = `Score: ${score}`;
+                document.getElementById('score-text').innerText = `Score: ${score}`;
                 input.disabled = true;
-                document.getElementById('next-btn').style.display = 'block';
+                nextBtn.style.display = 'block';
             } else {
                 isRetryMode = true;
-                feedback.innerText = "❌ Try again!";
-                feedback.style.color = "#ef4444";
+                feedback.innerText = "❌ TRY AGAIN";
+                feedback.style.color = "var(--error)";
                 input.value = '';
                 input.classList.add('retry-mode');
-                input.placeholder = "Correction: " + correct.toUpperCase();
+                input.placeholder = `Correction: ${correct.toUpperCase()}`;
                 speakWord(0.5);
             }
         }
     });
+
+    function resetProgress(ask = true) {
+        if (!ask || confirm("Restart from Word 1?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
 
     window.onload = init;
 </script>
