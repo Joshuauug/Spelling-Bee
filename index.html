@@ -9,7 +9,7 @@
         :root { --primary: #2563eb; --success: #10b981; --error: #ef4444; --bg: #f8fafc; --panel: #ffffff; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; min-height: 100vh; color: #1e293b; }
         .container { max-width: 600px; width: 100%; padding: 20px; }
-        .panel { background: var(--panel); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .panel { background: var(--panel); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); position: relative; }
         
         h1 { margin-top: 0; font-size: 1.5rem; text-align: center; color: var(--primary); }
         .definition { font-size: 1.2rem; font-style: italic; margin: 20px 0; min-height: 60px; line-height: 1.4; text-align: center; }
@@ -21,17 +21,19 @@
         button { cursor: pointer; border: none; font-weight: 700; border-radius: 10px; transition: 0.2s; }
         .btn-main { background: var(--primary); color: white; width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 15px; }
         .btn-speaker { background: #f1f5f9; color: var(--primary); padding: 10px 20px; margin-bottom: 20px; }
+        .btn-review { background: #fee2e2; color: #b91c1c; padding: 5px 10px; font-size: 0.75rem; }
         
         .accent-toggle { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .accent-btn { background: #e2e8f0; padding: 8px 16px; font-size: 0.9rem; }
         .accent-btn.active { background: #334155; color: white; }
 
-        .stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; }
+        .stats { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #64748b; margin-bottom: 20px; }
         #feedback { margin-top: 15px; font-weight: 800; text-align: center; min-height: 24px; }
 
-        /* Results Screen Styles */
-        .wrong-word-list { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; }
-        .wrong-item { color: var(--error); margin-bottom: 8px; font-family: monospace; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; }
+        /* Review Modal Styles */
+        #review-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 70vh; overflow-y: auto; text-align: center; }
+        .wrong-item { color: var(--error); padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -39,7 +41,7 @@
 <div class="container">
     <div id="manager-ui" class="panel">
         <h1>🐝 Spelling Bee</h1>
-        <p style="text-align:center;">Chapter III: The Ocean</p>
+        <p style="text-align:center;">Pratice For The Spelling Bee Here</p>
         <div style="text-align:center; margin: 20px 0;">
             <span id="total-count" style="background:#e0e7ff; color:#4338ca; padding:4px 12px; border-radius:99px;">0 Words Loaded</span>
         </div>
@@ -50,6 +52,7 @@
     <div id="game-ui" class="panel" style="display:none;">
         <div class="stats">
             <span id="progress-text">Word 1/--</span>
+            <button class="btn-review" onclick="toggleReview()">View Mistakes (<span id="miss-count">0</span>)</button>
             <span id="score-text">Score: 0</span>
         </div>
 
@@ -65,30 +68,30 @@
         </div>
 
         <input type="text" id="user-input" class="word-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
-        
         <div id="feedback"></div>
-        
         <button id="next-btn" class="btn-main" onclick="handleNext()" style="display:none; background: var(--success);">Next Word (Press Enter)</button>
     </div>
 
     <div id="results-ui" class="panel" style="display:none; text-align: center;">
         <h1>Test Complete!</h1>
         <div id="final-score-display" style="font-size: 2rem; font-weight: 800; color: var(--primary); margin: 20px 0;"></div>
-        <div id="mistakes-container" style="display:none;">
-            <p>Review the words you missed:</p>
-            <div class="wrong-word-list" id="wrong-words-display"></div>
-        </div>
-        <div id="perfect-score-msg" style="display:none; color: var(--success); font-weight: bold; margin: 20px 0;">
-            Perfect! You didn't miss a single word! 🎉
-        </div>
+        <div id="final-mistakes"></div>
         <button class="btn-main" onclick="location.reload()">Back to Start</button>
+    </div>
+</div>
+
+<div id="review-modal" onclick="toggleReview()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3>Mistakes So Far</h3>
+        <div id="review-list-content"></div>
+        <button class="btn-main" onclick="toggleReview()" style="background:#64748b;">Close</button>
     </div>
 </div>
 
 <script>
     let allWords = [], currentIndex = 0, score = 0;
     let currentLang = 'en-US', voices = [], isRetryMode = false;
-    let missedWords = []; // Track words failed on first attempt
+    let missedWords = []; 
 
     function loadVoices() { voices = window.speechSynthesis.getVoices(); }
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -104,12 +107,9 @@
 
     function init() {
         allWords = parseList();
-        
-        // Shuffle only if no saved progress
         if (!localStorage.getItem('bee_progress')) {
             allWords.sort(() => Math.random() - 0.5);
         }
-
         document.getElementById('total-count').innerText = `${allWords.length} Words Loaded`;
         
         const savedIdx = localStorage.getItem('bee_progress');
@@ -120,7 +120,25 @@
             currentIndex = parseInt(savedIdx);
             score = parseInt(savedScore) || 0;
             missedWords = JSON.parse(savedMissed) || [];
+            updateMissCount();
             document.getElementById('start-btn').innerText = `Resume Word ${currentIndex + 1}`;
+        }
+    }
+
+    function updateMissCount() {
+        document.getElementById('miss-count').innerText = missedWords.length;
+    }
+
+    function toggleReview() {
+        const modal = document.getElementById('review-modal');
+        const list = document.getElementById('review-list-content');
+        if (modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        } else {
+            list.innerHTML = missedWords.length > 0 
+                ? missedWords.map(w => `<div class="wrong-item">${w}</div>`).join('') 
+                : "<p>No mistakes yet! Keep it up!</p>";
+            modal.style.display = 'flex';
         }
     }
 
@@ -178,19 +196,12 @@
     function showFinalResults() {
         document.getElementById('game-ui').style.display = 'none';
         document.getElementById('results-ui').style.display = 'block';
-        
         const percent = Math.round((score / allWords.length) * 100);
         document.getElementById('final-score-display').innerText = `${score} / ${allWords.length} (${percent}%)`;
-        
-        if (missedWords.length > 0) {
-            document.getElementById('mistakes-container').style.display = 'block';
-            document.getElementById('wrong-words-display').innerHTML = missedWords
-                .map(w => `<div class="wrong-item">${w}</div>`).join('');
-        } else {
-            document.getElementById('perfect-score-msg').style.display = 'block';
-        }
-        
-        localStorage.clear(); // Clear storage after full completion
+        document.getElementById('final-mistakes').innerHTML = missedWords.length > 0 
+            ? `<h3>Mistakes List:</h3><div style="text-align:left; max-height:200px; overflow:auto; border:1px solid #ddd; padding:10px;">${missedWords.map(w => `<div style="color:red;">${w}</div>`).join('')}</div>`
+            : "Perfect Score! 🎉";
+        localStorage.clear();
     }
 
     document.getElementById('user-input').addEventListener('keypress', (e) => {
@@ -213,7 +224,8 @@
                 nextBtn.style.display = 'block';
             } else {
                 if (!isRetryMode) {
-                    missedWords.push(currentObj.word); // Save to "Wrong List" only on first fail
+                    missedWords.push(currentObj.word); 
+                    updateMissCount();
                 }
                 isRetryMode = true;
                 feedback.innerText = "❌ TRY AGAIN";
